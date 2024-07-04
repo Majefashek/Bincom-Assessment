@@ -10,7 +10,9 @@ from drf_yasg import openapi
 from django.utils import timezone
 
 
-
+'''
+Solution 3
+'''
 
 class NewPollingUnitPostResults(APIView):
     @swagger_auto_schema(
@@ -88,6 +90,9 @@ class NewPollingUnitPostResults(APIView):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+'''
+Solution 2
+'''
 class LocalGovernmentResult(APIView):
     '''
     This endpoint is designed to get the result of an election in a local governemnt.
@@ -99,6 +104,11 @@ class LocalGovernmentResult(APIView):
     at each iteration the unique id of the polling unit is used  to get the result of
     the polling unit.
     The result of the polling unit is then aggregated by party using a dictionary
+
+    Assumption made:
+    The polling unit id is unique
+    The polling unit id is the same as the polling unit unique id
+    Announced polling unit result is not filtered by the name of the LGA due to possible Human errors
     '''
     def get(self, request,*args, **kwargs):
         lga_id=kwargs.get('lga_id')
@@ -107,10 +117,11 @@ class LocalGovernmentResult(APIView):
             polling_units = PollingUnit.objects.filter(lga_id=lga_id)
             
             total_results = {}
+            
 
             # Step 3: Retrieve announced results for each polling unit and aggregate by party
             for unit in polling_units:
-                announced_results = AnnouncedPuResults.objects.filter(polling_unit_uniqueid=unit.uniqueid)
+                announced_results = AnnouncedPuResults.objects.filter(polling_unit_uniqueid=unit.polling_unit_id)
                 
                 for result in announced_results:
                     party_abbreviation = result.party_abbreviation
@@ -126,7 +137,17 @@ class LocalGovernmentResult(APIView):
 
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+        
+'''
+Solution one
+'''
 
+class PollingUnitResultsListAPIView(generics.ListAPIView):
+    # This endpoint gives the result of a particular polling unit
+    serializer_class = AnnouncedPuResultsSerializer
+    def get_queryset(self):
+        polling_unit_id = self.kwargs['polling_unit_id']
+        return AnnouncedPuResults.objects.filter(polling_unit_uniqueid=polling_unit_id)
 
 
 
@@ -150,9 +171,3 @@ class PollingUnitDetailAPIView(generics.RetrieveAPIView):
     serializer_class = PollingUnitSerializer
     permission_classes = [permissions.AllowAny] 
 
-class PollingUnitResultsListAPIView(generics.ListAPIView):
-    #This endpoint gives  all the polling units results
-    serializer_class = AnnouncedPuResultsSerializer
-    def get_queryset(self):
-        polling_unit_id = self.kwargs['polling_unit_id']
-        return AnnouncedPuResults.objects.filter(polling_unit_uniqueid=polling_unit_id)
